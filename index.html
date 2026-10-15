@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Building a comic book pipeline with AI</title>
+<meta name="description" content="We built a code-driven production pipeline for a hand-inked, twelve-issue comic in one working session with an AI agent. Scripts become lettering, panels become layers, and the same layers become print pages and motion pieces. This article says how it came together, how it works,">
+<link rel="canonical" href="https://nojuannobody.github.io/comic-pipeline-guide/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Building a comic book pipeline with AI">
+<meta property="og:description" content="We built a code-driven production pipeline for a hand-inked, twelve-issue comic in one working session with an AI agent. Scripts become lettering, panels become layers, and the same layers become print pages and motion pieces. This article says how it came together, how it works,">
+<meta property="og:url" content="https://nojuannobody.github.io/comic-pipeline-guide/">
+<meta property="og:image" content="https://nojuannobody.github.io/comic-pipeline-guide/og.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Building a comic book pipeline with AI">
+<meta name="twitter:description" content="We built a code-driven production pipeline for a hand-inked, twelve-issue comic in one working session with an AI agent. Scripts become lettering, panels become layers, and the same layers become print pages and motion pieces. This article says how it came together, how it works,">
+<meta name="twitter:image" content="https://nojuannobody.github.io/comic-pipeline-guide/og.png">
+<style>
+:root{--bg:#f4f1ea;--paper:#fbfaf6;--ink:#17171a;--soft:#55524b;--line:#d9d4c6;--accent:#b42330;--code-bg:#15171b;--code-ink:#e6e8ea;--code-dim:#8b919a;--tint:#ebe6d8;--radius:10px}
+@media (prefers-color-scheme:dark){:root{--bg:#121316;--paper:#17181c;--ink:#ecebe6;--soft:#a5a399;--line:#2a2c31;--accent:#ff6b76;--code-bg:#0c0d10;--code-ink:#e6e8ea;--tint:#1d1f24}}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:20px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.65 ui-serif,Georgia,"Iowan Old Style","Times New Roman",serif;-webkit-text-size-adjust:100%}
+a{color:var(--accent);text-underline-offset:3px}a:hover{text-decoration-thickness:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:56px}
+header.hero{max-width:1180px;margin:0 auto;padding:56px 20px 28px}
+.eyebrow{font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--soft)}
+h1{font:800 clamp(34px,6vw,64px)/1.04 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:-.02em;margin:14px 0 18px;max-width:18ch}
+.deck{font-size:clamp(19px,2.4vw,23px);line-height:1.5;color:var(--soft);max-width:44em;margin:0 0 24px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 6px}
+.btn{display:inline-block;font:600 15px/1 ui-sans-serif,system-ui,sans-serif;padding:13px 18px;border-radius:999px;border:2px solid var(--ink);color:var(--ink);text-decoration:none}
+.btn.primary{background:var(--ink);color:var(--bg)}.btn:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;padding:4px 0 24px;font:14px/1.4 ui-sans-serif,system-ui,sans-serif}
+nav.toc h2{font:700 12px/1 ui-monospace,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--soft);margin:0 0 12px}
+nav.toc ol{list-style:none;margin:0;padding:0}nav.toc li{margin:0}nav.toc a{display:block;padding:4px 0 4px 12px;color:var(--soft);text-decoration:none;border-left:2px solid var(--line)}
+nav.toc li.l2 a{font-weight:600;color:var(--ink);margin-top:8px}nav.toc li.l3 a{padding-left:24px;font-size:13px}nav.toc a:hover,nav.toc a.on{color:var(--accent);border-left-color:var(--accent)}
+main{min-width:0;padding-bottom:80px;max-width:760px}
+main h2{font:800 clamp(26px,3.6vw,36px)/1.15 ui-sans-serif,system-ui,sans-serif;letter-spacing:-.01em;margin:64px 0 14px;padding-top:28px;border-top:3px solid var(--ink)}
+main h3{font:700 22px/1.25 ui-sans-serif,system-ui,sans-serif;margin:40px 0 8px}
+main h2,main h3{position:relative}.anchor{position:absolute;left:-1.1em;color:var(--line);text-decoration:none;font-weight:400;opacity:0}h2:hover .anchor,h3:hover .anchor{opacity:1}
+p,li{overflow-wrap:break-word}ul,ol{padding-left:1.3em}li{margin:.35em 0}
+strong{font-weight:700}
+code{font:0.86em/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--tint);padding:.1em .35em;border-radius:5px}
+pre{position:relative;background:var(--code-bg);color:var(--code-ink);border-radius:var(--radius);padding:16px 18px;overflow:auto;font-size:14px;line-height:1.55;margin:20px 0}
+pre code{background:none;padding:0;color:inherit;font-size:inherit;white-space:pre}
+.copy{position:absolute;top:8px;right:8px;font:600 12px/1 ui-sans-serif,system-ui,sans-serif;padding:6px 9px;border-radius:6px;border:1px solid #3a3d45;background:#1e2026;color:var(--code-dim);cursor:pointer}.copy:hover{color:#fff;border-color:#777}
+.tw{overflow-x:auto;margin:22px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper)}
+table{border-collapse:collapse;width:100%;font:15px/1.5 ui-sans-serif,system-ui,sans-serif;min-width:620px}
+th{text-align:left;background:var(--tint);font-weight:700;white-space:nowrap}th,td{padding:10px 12px;vertical-align:top;border-bottom:1px solid var(--line)}tr:last-child td{border-bottom:0}
+blockquote{margin:22px 0;padding:6px 18px;border-left:4px solid var(--accent);color:var(--soft);background:var(--paper)}
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+figure.diagram{margin:30px -20px;padding:0}.frame{border:2px solid var(--ink);border-radius:var(--radius);overflow:hidden;background:#fff}
+.frame iframe{display:block;width:100%;border:0}figcaption{font:14px/1.4 ui-sans-serif,system-ui,sans-serif;color:var(--soft);margin:10px 4px 0}
+footer{max-width:1180px;margin:0 auto;padding:30px 20px 60px;border-top:1px solid var(--line);font:14px/1.5 ui-sans-serif,system-ui,sans-serif;color:var(--soft)}
+@media (max-width:900px){.wrap{display:block}nav.toc{display:none}figure.diagram{margin-left:0;margin-right:0}body{font-size:17px}.anchor{display:none}}
+@media print{nav.toc,.cta,.copy,figure.diagram{display:none}body{background:#fff}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="eyebrow">A guide for humans and robots</div>
+  <h1>Building a comic book pipeline with AI</h1>
+  <p class="deck">We built a code-driven production pipeline for a hand-inked, twelve-issue comic in one working session with an AI agent. Scripts become lettering, panels become layers, and the same layers become print pages and motion pieces. This article says how it came together, how it works, and how another agent can build the same thing for another artist by interviewing them first. It also says plainly what does not work yet.</p>
+  <div class="cta">
+    <a class="btn primary" href="#build-it-yourself-the-playbook">Build it yourself</a>
+    <a class="btn" href="#the-interview">The artist interview</a>
+    <a class="btn" href="guide.pdf">Download the PDF</a>
+  </div>
+</header>
+<div class="wrap">
+<nav class="toc" aria-label="Contents"><h2>Contents</h2><ol>
+<li class="l2"><a href="#what-is-real-and-what-isn-39-t">What is real and what isn&#39;t</a></li>
+<li class="l2"><a href="#the-idea-in-one-page">The idea in one page</a></li>
+<li class="l2"><a href="#how-it-came-together">How it came together</a></li>
+<li class="l3"><a href="#1-the-studio-and-its-house-rules">1. The studio and its house rules</a></li>
+<li class="l3"><a href="#2-the-first-teaser-and-four-rounds-of-critique">2. The first teaser, and four rounds of critique</a></li>
+<li class="l3"><a href="#3-the-art-problem">3. The art problem</a></li>
+<li class="l3"><a href="#4-the-colour-lab">4. The colour lab</a></li>
+<li class="l3"><a href="#5-the-lettering-manifest">5. The lettering manifest</a></li>
+<li class="l3"><a href="#6-the-push-into-a-desktop-publishing-app">6. The push into a desktop-publishing app</a></li>
+<li class="l3"><a href="#7-fonts">7. Fonts</a></li>
+<li class="l3"><a href="#8-the-hand-lettering-checklist">8. The hand-lettering checklist</a></li>
+<li class="l3"><a href="#9-the-pilot-kit">9. The pilot kit</a></li>
+<li class="l3"><a href="#10-how-the-work-was-run">10. How the work was run</a></li>
+<li class="l2"><a href="#how-it-works">How it works</a></li>
+<li class="l3"><a href="#the-three-contracts">The three contracts</a></li>
+<li class="l3"><a href="#the-layer-model">The layer model</a></li>
+<li class="l3"><a href="#what-each-track-does">What each track does</a></li>
+<li class="l3"><a href="#file-map">File map</a></li>
+<li class="l2"><a href="#principles-that-mattered">Principles that mattered</a></li>
+<li class="l2"><a href="#build-it-yourself-the-playbook">Build it yourself: the playbook</a></li>
+<li class="l3"><a href="#phase-0-interview-the-artist">Phase 0. Interview the artist</a></li>
+<li class="l3"><a href="#phase-1-repository-and-house-rules">Phase 1. Repository and house rules</a></li>
+<li class="l3"><a href="#phase-2-a-deterministic-renderer">Phase 2. A deterministic renderer</a></li>
+<li class="l3"><a href="#phase-3-audio-and-beats">Phase 3. Audio and beats</a></li>
+<li class="l3"><a href="#phase-4-review-pack-and-critique-loop">Phase 4. Review pack and critique loop</a></li>
+<li class="l3"><a href="#phase-5-art-ingest-and-the-layer-model">Phase 5. Art ingest and the layer model</a></li>
+<li class="l3"><a href="#phase-6-colour-lab">Phase 6. Colour lab</a></li>
+<li class="l3"><a href="#phase-7-lettering-manifest">Phase 7. Lettering manifest</a></li>
+<li class="l3"><a href="#phase-8-layout-push-to-a-desktop-publishing-app">Phase 8. Layout push to a desktop-publishing app</a></li>
+<li class="l3"><a href="#phase-9-fonts">Phase 9. Fonts</a></li>
+<li class="l3"><a href="#phase-10-the-hand-lettering-checklist">Phase 10. The hand-lettering checklist</a></li>
+<li class="l3"><a href="#phase-11-the-pilot-page">Phase 11. The pilot page</a></li>
+<li class="l3"><a href="#phase-12-the-art-bible">Phase 12. The art bible</a></li>
+<li class="l3"><a href="#phase-13-motion-pieces-at-scale">Phase 13. Motion pieces at scale</a></li>
+<li class="l2"><a href="#the-interview">The interview</a></li>
+<li class="l3"><a href="#format-and-output">Format and output</a></li>
+<li class="l3"><a href="#art-process-and-files">Art process and files</a></li>
+<li class="l3"><a href="#style-and-characters">Style and characters</a></li>
+<li class="l3"><a href="#lettering-and-type">Lettering and type</a></li>
+<li class="l3"><a href="#screen-and-motion">Screen and motion</a></li>
+<li class="l3"><a href="#scripts-and-text">Scripts and text</a></li>
+<li class="l3"><a href="#tools-and-constraints">Tools and constraints</a></li>
+<li class="l3"><a href="#ownership-and-legal">Ownership and legal</a></li>
+<li class="l2"><a href="#limits-risks-and-what-we-would-do-differently">Limits, risks and what we would do differently</a></li>
+<li class="l3"><a href="#limits">Limits</a></li>
+<li class="l3"><a href="#risks">Risks</a></li>
+<li class="l3"><a href="#what-we-would-do-differently">What we would do differently</a></li>
+<li class="l2"><a href="#stack-licences-and-cost">Stack, licences and cost</a></li>
+<li class="l2"><a href="#appendix">Appendix</a></li>
+<li class="l3"><a href="#a-brief-to-hand-to-your-own-agent">A brief to hand to your own agent</a></li>
+<li class="l3"><a href="#acceptance-checklist">Acceptance checklist</a></li>
+<li class="l3"><a href="#glossary">Glossary</a></li>
+<li class="l3"><a href="#links-and-credit">Links and credit</a></li>
+<li class="l2"><a href="#where-this-stands">Where this stands</a></li>
+</ol></nav>
+<main id="content">
+<h2 id="what-is-real-and-what-isn-39-t"><a class="anchor" href="#what-is-real-and-what-isn-39-t" aria-label="Link to this section">#</a>What is real and what isn&#39;t</h2>
+<p>Everything here was built and run in one working session of roughly five to six hours, mostly by an AI agent working from the artist&#39;s scripts and instructions. <strong>No real panel art has gone through the pipeline yet.</strong> The scripts exist; the drawings do not. That is the most important fact in this article, so it comes first.</p>
+<p>The table is the boundary of every claim that follows. When a later section says something works, it means this table says so.</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Status</th>
+<th>What we checked</th>
+<th>What is missing</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Deterministic renderer and a 16-second teaser</td>
+<td>Built and verified</td>
+<td>Renders 9:16, 1:1 and 16:9 with music. The same frame rendered twice gave the same file hash. Loop seam checked on stills. Audio measured at −14.0 LUFS, true peak −1.1 dBFS</td>
+<td>The teaser&#39;s own critique log scores its hook 7 out of 10, so it is not ship-ready. Its picture is a code-drawn placeholder. The scores are the agent&#39;s judgement, not an outside reviewer&#39;s</td>
+</tr>
+<tr>
+<td>Beat measuring (librosa)</td>
+<td>Built, lightly tested</td>
+<td>Measured 89.3 BPM on music we generated at 90 BPM; beat spacing varied by 6.2 ms</td>
+<td>Only run on generated music, never on a supplied track. The tracker skipped the first beat and read about 15 ms late</td>
+</tr>
+<tr>
+<td>Lettering manifest</td>
+<td>Built and verified</td>
+<td>12 scripts gave 264 story pages, 24 back-matter pages and 1,537 lettering items. Six of the seven lettering types match an independent grep count exactly. Plain balloons (699) were checked another way: a loose pattern found 1,541 cue-like lines against 1,537 items, and the four extras were not lettering</td>
+<td>Only as good as the script format it parses</td>
+</tr>
+<tr>
+<td>Layout push to a desktop-publishing app (DesignCraft)</td>
+<td>Built, partly verified</td>
+<td>Run on all 12 issues: 5 exit clean, 7 are flagged for dialogue that overflows its default panel. Pages 1–4 of issue 1 inspected as rendered images</td>
+<td>Never opened in the app&#39;s own window. Positions are a default reading-order stack, not a composition. Balloon tails are generic wedges. One page needs a hand layout</td>
+</tr>
+<tr>
+<td>Art ingest (scan or PSD to layers)</td>
+<td>Built, lightly tested</td>
+<td>Run on one flat test image</td>
+<td>The PSD path, which reads layers by name, has not been run on a real PSD. No real art</td>
+</tr>
+<tr>
+<td>Colour lab</td>
+<td>Built</td>
+<td>Eight mood recipes, a dirty-gradient painter, swatch files. PhotoCraft&#39;s import code was read to confirm it accepts .ase and .aco</td>
+<td>Judged only on a stand-in ink. We never ran PhotoCraft itself</td>
+</tr>
+<tr>
+<td>Test font, version 0.1</td>
+<td>Built, lightly tested</td>
+<td>283 glyphs; three alternates for every letter and digit. fontspector: 65 pass, 11 warn, 0 fail. A shaping test found 0 identical neighbours across 14,027 nearby same-letter pairs. DesignCraft applied the alternates in a test render</td>
+<td>The agent wrote the outlines. Capitals are good, lowercase is weak, strokes are thin at print size. No print proof. Not traced from the artist&#39;s ink</td>
+</tr>
+<tr>
+<td>Hand-lettering checklist</td>
+<td>Built, needs review</td>
+<td>191 candidates found by text pattern: 31 sound effects, 46 appearances of one recurring mark, 35 signs, 79 handwriting items</td>
+<td>Pattern matching, not reading. Some false hits remain</td>
+</tr>
+<tr>
+<td>Research report on open fonts</td>
+<td>Done, with gaps</td>
+<td>Five research strands with citations</td>
+<td>The report flags its own unverified claims: design-press trends, several licences, one Google Fonts rule</td>
+</tr>
+<tr>
+<td>Pilot-page kit</td>
+<td>Built</td>
+<td>Generated for one page: brief, print template, composition guide, study sheet, log</td>
+<td>Not used yet. Nobody has drawn the pilot page</td>
+</tr>
+<tr>
+<td>Voice-over tool</td>
+<td>Written, never run</td>
+<td>Nothing</td>
+<td>Needs an ElevenLabs key we did not use</td>
+</tr>
+</tbody></table></div>
+<p>An art bible of about 9,000 words and three diagrams were written in the same session by separate agents. The bible sorts every choice into DECIDED, WORKING ASSUMPTION or OPEN. The diagrams passed their tool&#39;s validation gates. We did not audit the bible line by line for this article, and passing a gate says nothing about whether a picture is good.</p>
+<p>What we did not test at all: Windows or Linux, any app other than DesignCraft&#39;s command-line tool, and printed output. The section on limits near the end repeats this with more detail.</p>
+<h2 id="the-idea-in-one-page"><a class="anchor" href="#the-idea-in-one-page" aria-label="Link to this section">#</a>The idea in one page</h2>
+<p>The system around the prompt does most of the work. We took that from Ray Fu&#39;s guide, <a href="https://www.raycfu.com/guides/motion-design-studio-opus-5-5">Motion Design Studio with Claude Opus 5.5</a>, which argues that a good AI-made motion graphic comes from infrastructure, house rules and a review loop, with the prompt as the small part. We paraphrase it here and do not reproduce it.</p>
+<p><strong>What we adopted from that guide</strong></p>
+<ul>
+<li>Every frame is a pure function of time. A page calls <code>seek(t)</code>, a headless browser screenshots it hundreds of times, and ffmpeg encodes the frames. Same time in, same pixels out.</li>
+<li>House rules live in a <code>CLAUDE.md</code> file the agent reads first, and a linter enforces the mechanical ones.</li>
+<li>Motion uses closed-form damped springs, stacked: when a target changes, add a spring that starts at that moment instead of restarting the old one.</li>
+<li>Beats are measured from the audio with librosa, and visual changes land on the measured beats.</li>
+<li>The agent reviews its own frames as contact sheets, scores them, fixes the three worst problems and repeats.</li>
+</ul>
+<p><strong>What we added, because a comic is not a product video</strong></p>
+<ul>
+<li>Panels as layers (background, colour, ink), fed from hand-inked art that the artist scans and paints.</li>
+<li>An ingest step that turns a scan or a layered PSD into those layers.</li>
+<li>A lettering manifest: one JSON file per issue extracted from the scripts, so the script stays the single source of truth for every balloon, caption and chat line, in print and in motion.</li>
+<li>A push of that manifest into a desktop-publishing app to build lettered pages.</li>
+<li>A colour lab, a font workflow, a checklist of everything that must be hand-lettered, a pilot-page kit, and an art bible that records what is decided and what is open.</li>
+</ul>
+<p><strong>Why a comic suits this</strong></p>
+<p>A comic is a large pile of structured text plus a lot of hand-made images. The tedious parts are bookkeeping and consistency: which line goes in which balloon, whether the viewer count on page 9 matches the script, whether a sign repeats the same way. Code is good at that. The drawing is not bookkeeping, and the system is built so the artist&#39;s hand stays the thing it serves.</p>
+<p><strong>Division of labour</strong></p>
+<p>The artist draws, paints and decides. The agent builds tools, enforces rules, does the repetitive extraction and layout, and says what it did not verify. We label every choice in the project one of three ways: DECIDED by the artist, WORKING ASSUMPTION set by the agent so something could be built, or OPEN. That labelling is the cheapest habit in this article and the one we would keep first.</p>
+<h2 id="how-it-came-together"><a class="anchor" href="#how-it-came-together" aria-label="Link to this section">#</a>How it came together</h2>
+<p>This is the order we built things in. Each step says what we tried, what broke and what we kept. The whole build was one session; the file timestamps run from about midday to early evening.</p>
+<h3 id="1-the-studio-and-its-house-rules"><a class="anchor" href="#1-the-studio-and-its-house-rules" aria-label="Link to this section">#</a>1. The studio and its house rules</h3>
+<p>We wrote the rules down before the first scene. A <code>CLAUDE.md</code> file holds the one law (every frame a pure function of time), a list of banned looks, a rhythm rule (something new every two to four seconds), the motion rules, a two-typeface limit and a workflow with gates. Then came a renderer of about 100 lines, a runtime library of about 115 lines (springs, seeded noise, beat snapping) and a linter that refuses to render a scene that breaks the mechanical rules.</p>
+<p>Fonts had to be vendored into the project. A deterministic render cannot depend on a network. We kept the idea that rules belong in a file the agent reads first and a linter the renderer runs.</p>
+<h3 id="2-the-first-teaser-and-four-rounds-of-critique"><a class="anchor" href="#2-the-first-teaser-and-four-rounds-of-critique" aria-label="Link to this section">#</a>2. The first teaser, and four rounds of critique</h3>
+<p>The test piece was a 16-second looping teaser for issue one, built from the script&#39;s own words: chat lines, a viewer counter and a caption that edits itself. After each render the agent looked at contact sheets, scored six axes (hook, readability, motion quality, variety, brand accuracy, sound sync), named the three worst problems and fixed them. The log records what went wrong:</p>
+<ul>
+<li><strong>Round 0, stills.</strong> In 9:16 the main frame used about a quarter of the screen. The viewer counter overshot to a value the script never prints, because a bouncy spring on a counter overshoots. The title mark did not line up with the opening shape, so the loop seam jumped.</li>
+<li><strong>Round 1.</strong> The opening sat still for 2.7 seconds, so three contact-sheet cells were identical. A struck-through phrase vanished in 16:9 because the phrase wrapped across two lines. After the in-story stream ended, the chat kept scrolling, which contradicted the script.</li>
+<li><strong>Round 2.</strong> The poster frame landed past the loop seam, because beat snapping had moved it from 15.27 s to 15.35 s. We also added a small detail the script called for.</li>
+<li><strong>Round 3.</strong> Scores of 7, 8, 8, 8, 8 and 8. The hook was stuck at 7 because the picture was placeholder art, and the log says so: not ship-ready.</li>
+</ul>
+<p>The hook score went 4, 5, 7, 7 across the rounds. We kept the loop of render, look, score and fix, and the habit of writing the failure down.</p>
+<h3 id="3-the-art-problem"><a class="anchor" href="#3-the-art-problem" aria-label="Link to this section">#</a>3. The art problem</h3>
+<p>We had scripts and no drawings. We could wait, or build against a stand-in. We generated a deliberately crude test ink image by script, stamped with the words TEST INK, and wrote an ingest tool that separates ink from paper into a transparent PNG whose alpha equals ink density, so dry-brush texture survives. A panel loader then draws the layers with a camera push and parallax.</p>
+<p>Building against a stand-in forced the real contract into the open: the artist delivers named layers. We kept that contract (<code>ink</code>, <code>color</code>, <code>bg</code>) and the labelled stand-in.</p>
+<h3 id="4-the-colour-lab"><a class="anchor" href="#4-the-colour-lab" aria-label="Link to this section">#</a>4. The colour lab</h3>
+<p>The artist paints by hand with dirty gradients, so the lab is a reference and not a substitute. It holds eight mood recipes, each tied to a specific script page, and a painter that makes warped gradients, wet-edge blooms and paper grain under the ink.</p>
+<p>The first renders looked like grey smoke, then marble veins, then airbrush. The agent critiqued and re-rendered four times. Weak spots remain and are recorded: one recipe is so dark the silhouettes barely read, the cleanest recipe shows banding, and the texture reads as wash more than brush.</p>
+<p>For the swatches we read PhotoCraft&#39;s source to find out which formats it imports. It accepts <code>.aco</code> and <code>.ase</code>, not <code>.gpl</code>, so we exported both. Every pass was judged on the stand-in ink.</p>
+<h3 id="5-the-lettering-manifest"><a class="anchor" href="#5-the-lettering-manifest" aria-label="Link to this section">#</a>5. The lettering manifest</h3>
+<p>The scripts are plain-text Fountain with a few house conventions. A parser turns each into JSON: pages, panels and every letter with its kind and speaker. Chat cues split into handle and message. Viewer counts quoted in panel descriptions are pulled out. The author&#39;s margin notes are stripped and listed separately, so they cannot reach a balloon.</p>
+<p>Then we checked it against something that was not our parser. A grep count of each lettering type matched exactly for six of the seven types. We then rewired the teaser to fetch its lines by address (page and panel) and to throw when an address no longer resolves. That exposed a mistake of our own: the teaser brief had guessed page numbers for several moments, and the manifest showed they were elsewhere.</p>
+<h3 id="6-the-push-into-a-desktop-publishing-app"><a class="anchor" href="#6-the-push-into-a-desktop-publishing-app" aria-label="Link to this section">#</a>6. The push into a desktop-publishing app</h3>
+<p>First an agent read the documentation and source of four apps in the ArtCraft suite. DesignCraft has no plugin system, but it has a local control port, a headless script mode and a large command set. It has no speech-balloon primitive. Our push builds a balloon from an ellipse text frame plus a wedge-shaped tail path, uses named paragraph styles per narrator, and measures overset text with the app&#39;s own inspector. The tool exits 2 on lettering problems and still writes its output so a human can look.</p>
+<p>Three things broke on the way, per the build agent&#39;s report: tails landed on page 1 because the path command needs an explicit page; short words split mid-word until the minimum width followed the longest word; and chat handles broke mid-handle. We re-ran all 12 issues ourselves for this article: 5 exit clean and 7 are flagged.</p>
+<h3 id="7-fonts"><a class="anchor" href="#7-fonts" aria-label="Link to this section">#</a>7. Fonts</h3>
+<p>Five research agents surveyed open fonts. The finding that mattered: open comic-lettering fonts almost never ship alternate letterforms, so repeated letters look typed. Of thirteen fonts whose features were inspected, only one, Shantell Sans, had them.</p>
+<p>Then we built a test font by script. Hand-authored centerline strokes are expanded with a pressure-tapered brush, cleaned with boolean unions, spaced automatically, and compiled with fontmake. A <code>calt</code> lookup cycles each letter through three versions when it repeats within five glyphs. A HarfBuzz test generated nearby same-letter pairs and checked that none were identical. The build agent reported that its first run flagged 33 identical pairs. All were repeated punctuation, which has no alternates, so the test was wrong and the font was fine. We restricted the test to letters and digits.</p>
+<p>DesignCraft applied the alternates in a test render. The artist liked the font and wants it as the main balloon font. We pushed back on four points: strokes are thin at print size, lowercase is weak, one font cannot serve every narrator, and the agent wrote the outlines, so they are not yet the artist&#39;s.</p>
+<h3 id="8-the-hand-lettering-checklist"><a class="anchor" href="#8-the-hand-lettering-checklist" aria-label="Link to this section">#</a>8. The hand-lettering checklist</h3>
+<p>Some lettering lives inside the picture: sound effects, signs, marks, someone&#39;s handwriting. A script scans the panel descriptions for those and lists them with page, panel and the exact words. The first pass found 213 candidates, 94 of them &quot;handwriting&quot;, which was too many: the pattern matched phrases like &quot;a glass in her hand&quot;. Tightening it gave 191 and 79. One sign recurs eleven times, which tells the artist to draw one consistent hand for it.</p>
+<h3 id="9-the-pilot-kit"><a class="anchor" href="#9-the-pilot-kit" aria-label="Link to this section">#</a>9. The pilot kit</h3>
+<p>Every decision so far rested on a stand-in. A pilot kit generates what the artist needs to draw one page end to end: a brief built from the manifest, a print template at 150% of trim size with bleed and safe guides, a composition guide, a study sheet for a recurring mark, and a log for timing and surprises. The pilot page should settle the big format and style questions with a real page instead of a discussion.</p>
+<h3 id="10-how-the-work-was-run"><a class="anchor" href="#10-how-the-work-was-run" aria-label="Link to this section">#</a>10. How the work was run</h3>
+<p>Most of the work ran as parallel agents that each owned different files: the colour lab, the layout push, the font, five research strands, the art bible, the diagrams and the agent that wrote this article. One research agent was stopped by the artist mid-run and re-run with a narrower question. Every agent was told to report what it had not verified, and we re-ran the checks that mattered ourselves: the manifest counts, the 12-issue layout run and the font tests.</p>
+<h2 id="how-it-works"><a class="anchor" href="#how-it-works" aria-label="Link to this section">#</a>How it works</h2>
+<p>Three tracks run side by side and meet in one layer model. The art track belongs to the artist. The text track starts from the scripts. The motion track renders pictures and sound. They talk to each other only through three files, which is why each track can be built and tested alone.</p>
+
+<figure class="diagram">
+  <div class="frame"><iframe src="diagrams/pipeline.html" title="The pipeline: three tracks meeting in one layer model." loading="lazy" style="height:720px"></iframe></div>
+  <figcaption>The pipeline: three tracks meeting in one layer model. <a href="diagrams/pipeline.html" target="_blank" rel="noopener">Open full size ↗</a></figcaption>
+</figure>
+<p>The art and text tracks each end by producing layers. The motion track reads them, along with the manifest and the measured beats. Print flattens the stack and screen keeps it apart. The artist&#39;s step is the only one no tool can do.</p>
+<h3 id="the-three-contracts"><a class="anchor" href="#the-three-contracts" aria-label="Link to this section">#</a>The three contracts</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>File</th>
+<th>Written by</th>
+<th>Read by</th>
+<th>Holds</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>panel.json</code> plus layer PNGs</td>
+<td>the ingest tool</td>
+<td>the motion scenes</td>
+<td>Panel size, layer order, a depth per layer, a default camera focus</td>
+</tr>
+<tr>
+<td><code>lettering/issue-NN.json</code></td>
+<td>the manifest builder</td>
+<td>the layout push and the motion scenes</td>
+<td>Every page, panel, balloon, caption and chat line, with kind and speaker</td>
+</tr>
+<tr>
+<td><code>beats.json</code></td>
+<td>the beat tool</td>
+<td>the motion scenes</td>
+<td>Measured beat times, downbeats and strong onsets</td>
+</tr>
+</tbody></table></div>
+<h3 id="the-layer-model"><a class="anchor" href="#the-layer-model" aria-label="Link to this section">#</a>The layer model</h3>
+<p>One panel is a stack of layers. Print flattens them. Screen keeps them apart so they can move at different depths.</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>What it is</th>
+<th>Made in</th>
+<th>In print</th>
+<th>On screen</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>bg</code></td>
+<td>Background art</td>
+<td>PhotoCraft or VectorCraft</td>
+<td>Flattened under everything</td>
+<td>Slowest layer, depth 0.25</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>Painted gradients and washes</td>
+<td>PhotoCraft</td>
+<td>Flattened under the ink</td>
+<td>Depth 0.9; coloured light can fall on it</td>
+</tr>
+<tr>
+<td><code>ink</code></td>
+<td>Brush ink, black on transparent, alpha equal to ink density</td>
+<td>Scan, cleaned in PhotoCraft</td>
+<td>Multiplied on top of the colour</td>
+<td>Depth 1.0, moves with the camera</td>
+</tr>
+<tr>
+<td>lettering</td>
+<td>Balloons and captions set from the manifest</td>
+<td>DesignCraft</td>
+<td>Live type on a layer above the art</td>
+<td>Rebuilt in motion from the same manifest</td>
+</tr>
+<tr>
+<td>screen chrome</td>
+<td>In-story interfaces: chat rail, LIVE bug, viewer counter</td>
+<td>Motion studio; the rail is typeset in DesignCraft for print</td>
+<td>A static rail whose density shows volume</td>
+<td>Animated, with numbers from the manifest</td>
+</tr>
+</tbody></table></div>
+<p>Keep ink, colour and background on separate layers from the start. If they arrive flattened, nothing can move independently and any coloured light must be painted over the brushwork.</p>
+<figure class="diagram">
+  <div class="frame"><iframe src="diagrams/panel-layers.html" title="One panel as layers, and who owns each." loading="lazy" style="height:720px"></iframe></div>
+  <figcaption>One panel as layers, and who owns each. <a href="diagrams/panel-layers.html" target="_blank" rel="noopener">Open full size ↗</a></figcaption>
+</figure>
+<h3 id="what-each-track-does"><a class="anchor" href="#what-each-track-does" aria-label="Link to this section">#</a>What each track does</h3>
+<ul>
+<li><strong>Art track.</strong> Hand ink, scan at 600 dpi (a working assumption), paint in PhotoCraft on layers named <code>ink</code>, <code>color</code> and <code>bg</code>, export a PSD, then run <code>tools/ingest.py</code> to write the layer PNGs and <code>panel.json</code>.</li>
+<li><strong>Text track.</strong> <code>.fountain</code> scripts go through <code>tools/manifest.mjs</code> to <code>lettering/issue-NN.json</code>. <code>tools/letter-designcraft.mjs</code> turns that into a lettered <code>.designcraft</code> document and page PNGs. The motion scenes read the same JSON through <code>lib/lettering.js</code>.</li>
+<li><strong>Motion track.</strong> Music is generated in code or supplied, <code>tools/beats.py</code> measures it, a scene file exports <code>seek(t)</code>, and <code>render.mjs</code> produces MP4s in three aspect ratios plus a review pack for the agent to look at.</li>
+</ul>
+<h3 id="file-map"><a class="anchor" href="#file-map" aria-label="Link to this section">#</a>File map</h3>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-text">studio/
+  CLAUDE.md              house rules the agent reads first
+  render.mjs             deterministic renderer: seek(t) -&gt; PNG frames -&gt; ffmpeg
+  lib/
+    runtime.js           springs, seeded noise, beat snapping, stage(), scene()
+    panels.js            loads ingested panels, draws layers with camera + parallax
+    lettering.js         fetches lines from the manifest by page.panel, throws on drift
+    dirty.js             dirty-gradient painter (colour lab)
+    soop.css             brand tokens and shared UI styles (rename for your project)
+  tools/
+    manifest.mjs         scripts -&gt; lettering/issue-NN.json
+    letter-designcraft.mjs  manifest -&gt; lettered DesignCraft pages
+    handlettering.mjs    manifest -&gt; checklist of in-picture lettering
+    ingest.py            scan or PSD -&gt; layers + panel.json
+    beats.py, synth.mjs, mix.sh   measure, generate and master audio
+    review.mjs, lint.mjs  review pack for the agent; house-rule linter
+    pilot-kit.mjs        generate a one-page pilot kit
+    standin_ink.py       labelled test ink for exercising the pipeline
+  lab/                   colour lab: recipes, swatches, test passes
+  fonts/                 test font: stroke data, brush, build script, specimen
+  lettering/             generated manifests, checklist, layout output
+  projects/&lt;piece&gt;/      scene.html, score.mjs, beats.json, brief.md, critique.md, out/
+  critique/RUBRIC.md     the six scores and the three-rounds rule
+  assets/                fonts and ingested panels
+  incoming/              scans waiting to be ingested
+</code></pre>
+
+<figure class="diagram">
+  <div class="frame"><iframe src="diagrams/roadmap.html" title="Where each piece stands: done, next, waiting on the artist, later." loading="lazy" style="height:780px"></iframe></div>
+  <figcaption>Where each piece stands: done, next, waiting on the artist, later. <a href="diagrams/roadmap.html" target="_blank" rel="noopener">Open full size ↗</a></figcaption>
+</figure><h2 id="principles-that-mattered"><a class="anchor" href="#principles-that-mattered" aria-label="Link to this section">#</a>Principles that mattered</h2>
+<p>Each principle names the mechanism that enforces it. A principle with no mechanism was advice, and advice did not survive a long session.</p>
+<ol>
+<li><strong>One source of truth.</strong> The scripts feed a manifest, and the manifest feeds print and motion. Nothing is retyped. <code>lib/lettering.js</code> fetches a line by page and panel and throws if the script no longer has it, so a stale promo fails loudly.</li>
+<li><strong>Measure, do not assume.</strong> <code>beats.py</code> measured our generated music at 89.3 BPM when we had designed it at 90, and showed the tracker skipped the first beat and read about 15 ms late. We only knew because we printed the numbers. Spacing in the font comes from measured ink profiles, and the font&#39;s alternates were proved with a shaping test.</li>
+<li><strong>Enforce rules with a linter, not prose.</strong> The linter blocks <code>Math.random</code>, timers, <code>requestAnimationFrame</code>, wall-clock time, CSS transitions and animations, glow on interface text, and a centred title on a gradient. The renderer will not run a scene that fails it. A <code>lint-ok</code> comment marks a reviewed exception.</li>
+<li><strong>Critique with the actual pixels.</strong> After every render the agent opens a contact sheet, a strip of the first three seconds, a phone-width sheet and a seam still, then scores six axes and fixes the three worst problems. Three rounds minimum, every score 8 or higher to ship. The agent grades its own work, so a human should still look.</li>
+<li><strong>Label stand-ins loudly.</strong> The test ink says TEST INK in its own pixels and <code>STANDIN</code> in its filename. The font&#39;s name table says ROUGH TEST / PLACEHOLDER. A placeholder that looks finished is how a placeholder ships.</li>
+<li><strong>Verify counts independently.</strong> The manifest&#39;s per-type counts were compared with a plain grep. The layout push was re-run on every issue and judged by exit code, not by the agent&#39;s summary.</li>
+<li><strong>Fail loudly on drift.</strong> Missing panel art renders a visible message, not a blank. The layout push exits 2 when text will not fit and still writes its output so you can see why. The renderer&#39;s file server once crashed on a missing file because it sent a success header before reading the file. We fixed that and kept the lesson: read first, then answer.</li>
+<li><strong>Parallel agents, disjoint files.</strong> Each agent owned a folder and was told which files it must not touch. Each report had to say what it could not verify. Disjoint ownership meant no merge conflicts and no two agents rewriting the same file.</li>
+<li><strong>Defaults are not decisions.</strong> Trim size, bleed, scan resolution and page grid are working assumptions with one place to change them. The art bible lists every choice as DECIDED, WORKING ASSUMPTION or OPEN, so a default never hardens into policy unnoticed.</li>
+<li><strong>The artist&#39;s hand is what the system serves.</strong> Ink is separated as alpha so brush texture survives. Real art is cropped and moved, never redrawn. The agent does not invent art decisions, and the generated font stays a placeholder until its shapes come from the artist&#39;s own ink.</li>
+<li><strong>Verify tools before promising them.</strong> We found pip packages that do not exist (<code>htletterspacer</code> and <code>kernmaker</code> both returned no matching distribution), an ffmpeg build with no <code>drawtext</code> filter (so our review sheets have no timestamps), and an editor that needs a newer Node than the machine had. Install and smoke-test each tool before it goes into a plan.</li>
+</ol>
+<h2 id="build-it-yourself-the-playbook"><a class="anchor" href="#build-it-yourself-the-playbook" aria-label="Link to this section">#</a>Build it yourself: the playbook</h2>
+<p>This is written for an AI agent that has shell access and can run sub-agents, and for a human who wants to follow along. Work in phases, and do not start a phase until the previous one passes its &quot;done when&quot; test. Each phase gives the goal, what to build, the key spec, the test and the most likely failure. File names are ours; rename them for your project.</p>
+<h3 id="phase-0-interview-the-artist"><a class="anchor" href="#phase-0-interview-the-artist" aria-label="Link to this section">#</a>Phase 0. Interview the artist</h3>
+<p><strong>Goal.</strong> Turn the artist&#39;s intentions into a labelled decision table before writing any code. The full question list is in the section called The interview.</p>
+<p><strong>Build.</strong> An art bible with a master decision table. Every row is labelled DECIDED (the artist said it or wrote it), WORKING ASSUMPTION (you chose a default so something could be built) or OPEN.</p>
+<p><strong>Done when.</strong> Every row is labelled, the artist has read the table, and none of the art decisions were invented by you.</p>
+<p><strong>Likely failure.</strong> The agent fills a gap with its own taste and later treats that taste as the artist&#39;s decision.</p>
+<h3 id="phase-1-repository-and-house-rules"><a class="anchor" href="#phase-1-repository-and-house-rules" aria-label="Link to this section">#</a>Phase 1. Repository and house rules</h3>
+<p><strong>Goal.</strong> A project where the agent reads the rules first and cannot break the mechanical ones.</p>
+<p><strong>Build.</strong> A folder with <code>npm init</code> and Playwright, a Python virtual environment with librosa, vendored fonts, a <code>CLAUDE.md</code>, and a linter. The rules file needs: the one law (every frame a pure function of time), banned looks, a rhythm rule, motion rules, a two-typeface limit, the brand tokens, the workflow gates, and a short list of failures you have already hit.</p>
+<p><strong>Key spec.</strong> Lint rules, each a regular expression run over the scene file:</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-js">const RULES = [
+  [/Math\.random/, &#39;use a seeded generator&#39;],
+  [/setTimeout|setInterval/, &#39;timers: every frame must be a function of t&#39;],
+  [/requestAnimationFrame/, &#39;the scene wrapper handles live preview&#39;],
+  [/Date\.now|performance\.now|new Date\(/, &#39;wall-clock time: use t&#39;],
+  [/transition\s*:/, &#39;CSS transition: animate inside seek(t)&#39;],
+  [/animation\s*:|@keyframes/, &#39;CSS animation: animate inside seek(t)&#39;],
+  // plus: glow on interface text, centred title on a gradient
+];
+</code></pre>
+<p><strong>Done when.</strong> The linter passes a clean scene and fails a file containing <code>Math.random()</code>.</p>
+<p><strong>Likely failure.</strong> Rules written as taste (&quot;make it feel premium&quot;). Write rules a program can check.</p>
+<h3 id="phase-2-a-deterministic-renderer"><a class="anchor" href="#phase-2-a-deterministic-renderer" aria-label="Link to this section">#</a>Phase 2. A deterministic renderer</h3>
+<p><strong>Goal.</strong> A scene file becomes an MP4, and the same input always gives the same pixels.</p>
+<p><strong>Build.</strong> A static file server, a headless Chromium page per worker, and ffmpeg. A scene registers itself and the renderer drives it:</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-js">// in the scene
+scene({ duration: 16, fps: 30, poster: 15.2, seek(t) { /* paint the frame for time t */ } });
+
+// in the renderer: several pages in parallel, each takes every Nth frame
+await page.evaluate((t) =&gt; window.__scene.seek(t), i / fps);
+await page.screenshot({ path: `f${String(i).padStart(5, &#39;0&#39;)}.png` });
+</code></pre>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-bash">ffmpeg -framerate 30 -i f%05d.png -i mix.wav -c:v libx264 -pix_fmt yuv420p \
+  -crf 16 -preset slow -movflags +faststart -c:a aac out.mp4
+</code></pre>
+<p>Read the viewport size from the page URL (<code>?w=1080&amp;h=1920</code>) so one scene serves 9:16, 1:1 and 16:9. Our 480-frame teaser rendered in about 27 s at 9:16, 16 s at 1:1 and 26 s at 16:9, with six pages in parallel on a Mac.</p>
+<p>The motion library is small. Closed-form damped spring, stacked springs, and a seeded hash:</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-js">export function springStep(dt, { w = 14, z = 0.62 } = {}) {
+  if (dt &lt;= 0) return 0;
+  if (z &gt;= 1) return 1 - Math.exp(-w * dt) * (1 + w * dt);
+  const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + (z * w / wd) * Math.sin(wd * dt));
+}
+// one spring per target change, each starting at its own time (simplified)
+export function springTrack(t, keys, opts) {
+  let v = keys[0][1];
+  for (let i = 1; i &lt; keys.length; i++) v += (keys[i][1] - keys[i - 1][1]) * springStep(t - keys[i][0], opts);
+  return v;
+}
+export function hash(n) {
+  n = (n | 0) ^ 0x9e3779b9;
+  n = Math.imul(n ^ (n &gt;&gt;&gt; 16), 0x85ebca6b);
+  n = Math.imul(n ^ (n &gt;&gt;&gt; 13), 0xc2b2ae35);
+  return ((n ^ (n &gt;&gt;&gt; 16)) &gt;&gt;&gt; 0) / 4294967296;
+}
+</code></pre>
+<p>Our presets: heavy <code>{w: 9, z: 0.78}</code>, snap <code>{w: 22, z: 0.7}</code>, loose <code>{w: 11, z: 0.45}</code>, critical <code>{w: 16, z: 1}</code>. Use critical damping for any number that is read as a number.</p>
+<p><strong>Done when.</strong> Rendering one frame twice gives an identical file hash, and all three formats render.</p>
+<p><strong>Likely failure.</strong> A bouncy spring on a counter reads a value nobody wrote. Text wraps differently per format. Any timer sneaks in.</p>
+<h3 id="phase-3-audio-and-beats"><a class="anchor" href="#phase-3-audio-and-beats" aria-label="Link to this section">#</a>Phase 3. Audio and beats</h3>
+<p><strong>Goal.</strong> Visual changes land on measured beats, and the audio is mastered to a streaming level.</p>
+<p><strong>Build.</strong> Music either supplied or generated in code with seeded noise (kick, tick, hat, drone, riser, hit, blip), a beat measurer, and a mixer.</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-json">{ &quot;source&quot;: &quot;music.wav&quot;, &quot;duration&quot;: 16.0, &quot;tempo&quot;: 89.29,
+  &quot;beats&quot;: [0.6827, 1.344, 2.016], &quot;downbeats&quot;: [0.6827], &quot;onsets&quot;: [1.344, 2.6773] }
+</code></pre>
+<p>The measurer is librosa&#39;s <code>onset_strength</code>, then <code>beat_track</code>, with an optional <code>--bpm</code> hint when it locks to half or double time. In a scene, <code>onBeat(t, tol = 0.15)</code> returns the nearest measured beat if one is within 0.15 s, otherwise <code>t</code> unchanged. Mastering is two-pass loudness normalisation:</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-bash">ffmpeg -i premix.wav -af loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json -f null -
+ffmpeg -i premix.wav -af &quot;loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=$I:measured_TP=$TP:measured_LRA=$LRA:measured_thresh=$TH:offset=$OFF:linear=true&quot; mix.wav
+</code></pre>
+<p>Our single pass read −13.7 LUFS. The two-pass result was −14.0 LUFS with a true peak of −1.1 dBFS, which is above the −1.5 we asked for and still under −1.0.</p>
+<p><strong>Done when.</strong> The measured tempo is within a few percent of the intended one and the mix is within half a LUFS of target.</p>
+<p><strong>Likely failure.</strong> The tracker skips beat 0 and reads a few milliseconds late. Snap only cuts and hits; never snap a time that must stay put, such as a poster frame or a loop seam.</p>
+<h3 id="phase-4-review-pack-and-critique-loop"><a class="anchor" href="#phase-4-review-pack-and-critique-loop" aria-label="Link to this section">#</a>Phase 4. Review pack and critique loop</h3>
+<p><strong>Goal.</strong> The agent looks at its own output and improves it, with the scores written down.</p>
+<p><strong>Build.</strong> A script that writes five things for each render: a contact sheet at one frame per second, a strip of the first three seconds at four frames per second, a phone-width sheet, a still of the last frame beside the first, and a video of the film played twice.</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-bash">ffmpeg -i out.mp4 -vf &quot;fps=1,scale=270:480,tile=6x3:padding=6&quot; -frames:v 1 contact.png
+ffmpeg -t 3 -i out.mp4 -vf &quot;fps=4,scale=270:480,tile=6x2:padding=6&quot; -frames:v 1 hook.png
+printf &quot;file &#39;out.mp4&#39;\nfile &#39;out.mp4&#39;\n&quot; &gt; list.txt &amp;&amp; ffmpeg -f concat -safe 0 -i list.txt -c copy loopcheck.mp4
+</code></pre>
+<p>The loop: render, open the images, score six axes from 1 to 10 (hook, readability, motion quality, variety, brand accuracy, sound sync), name the three worst problems with timestamps, fix them, render again. Three rounds minimum. Ship when every score is 8 or higher. Log each round.</p>
+<p><strong>Done when.</strong> The log shows at least three honest rounds. Ours stopped at round three with the hook at 7 and said so.</p>
+<p><strong>Likely failure.</strong> Scoring without opening the images, or checking only one aspect ratio. The 16:9 and 1:1 cuts broke in different places from the 9:16 one.</p>
+<h3 id="phase-5-art-ingest-and-the-layer-model"><a class="anchor" href="#phase-5-art-ingest-and-the-layer-model" aria-label="Link to this section">#</a>Phase 5. Art ingest and the layer model</h3>
+<p><strong>Goal.</strong> A flat scan and a layered PSD both become the same stack of layers a scene can draw.</p>
+<p><strong>Build.</strong> An ingest script. For a flat scan it finds the paper and ink levels, converts darkness to alpha, and writes black ink on transparent. For a PSD it reads layers by name.</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-python">g = grayscale(scan) / 255
+paper = percentile(g, 92); ink = percentile(g, 0.5)          # automatic levels
+alpha = clip((paper - g) / (paper - ink), 0, 1) ** 0.85       # ink density; dry-brush texture survives
+alpha[alpha &lt; 0.06] = 0                                       # drop paper grain and dust
+ink_png = rgba(colour=(13, 13, 15), alpha=alpha)              # brand ink, transparent elsewhere
+</code></pre>
+<p>PSD layer names are matched case-insensitively: <code>ink</code>, <code>line</code> or <code>lineart</code> is ink; <code>color</code>, <code>paint</code>, <code>flats</code> or <code>gradient</code> is colour; <code>bg</code>, <code>background</code> or <code>sky</code> is background. Each layer gets a depth for parallax: background 0.25, colour 0.9, ink 1.0, with ink blended by multiply. The result is a <code>panel.json</code> beside the PNGs:</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-json">{ &quot;id&quot;: &quot;issue-01/p02-1&quot;, &quot;width&quot;: 4096, &quot;height&quot;: 3072,
+  &quot;layers&quot;: [
+    { &quot;name&quot;: &quot;bg&quot;,    &quot;file&quot;: &quot;bg.png&quot;,    &quot;depth&quot;: 0.25, &quot;blend&quot;: &quot;normal&quot; },
+    { &quot;name&quot;: &quot;color&quot;, &quot;file&quot;: &quot;color.png&quot;, &quot;depth&quot;: 0.9,  &quot;blend&quot;: &quot;normal&quot; },
+    { &quot;name&quot;: &quot;ink&quot;,   &quot;file&quot;: &quot;ink.png&quot;,   &quot;depth&quot;: 1.0,  &quot;blend&quot;: &quot;multiply&quot; } ],
+  &quot;focus&quot;: [0.5, 0.5] }
+</code></pre>
+<p>The loader draws a layer of depth <code>d</code> with zoom <code>lerp(1, zoom, d)</code> and focus <code>lerp(0.5, focus, d)</code>, so far layers move less than near ones, and it clamps so the art never leaves the frame. Re-ingesting keeps hand-edited fields such as <code>focus</code> and depths. The longest side is capped at 4096 px for motion, because scans are often far larger.</p>
+<p><strong>Done when.</strong> Both a flat scan and a layered PSD produce the same folder layout and a scene draws them.</p>
+<p><strong>Likely failure.</strong> The artist delivers flattened files. Ask for layers early. Also note that we have only run the flat-scan branch, on a test image. Run the PSD branch on a real file before trusting it.</p>
+<h3 id="phase-6-colour-lab"><a class="anchor" href="#phase-6-colour-lab" aria-label="Link to this section">#</a>Phase 6. Colour lab</h3>
+<p><strong>Goal.</strong> Give the artist guides to react to. Do not paint the book for them.</p>
+<p><strong>Build.</strong> A recipes file where each recipe has a name, the script page it comes from, three to six stops from shadow to light, an accent, the direction of the light and a few rules. Add a painter that makes a dirty gradient: a gradient along an angle, warped by low-frequency noise so the bands wander, with blooms where pigment pools, grain, and paper tooth. Keep it seeded and deterministic so the same recipe can later drift or flicker in motion. Render each recipe under the ink with multiply, and put the passes on one sheet with the recipe&#39;s source line beside it.</p>
+<p>Export swatches in the format the artist&#39;s paint app imports. Read that app&#39;s source or docs to find out; ours accepts <code>.ase</code> and <code>.aco</code> and rejects <code>.gpl</code>.</p>
+<p><strong>Done when.</strong> The artist has looked at a sheet and said which recipes feel right and which do not.</p>
+<p><strong>Likely failure.</strong> Judging colour on stand-in ink, or accepting the agent&#39;s own opinion that a pass &quot;looks like paint&quot;. Only the artist can say that.</p>
+<h3 id="phase-7-lettering-manifest"><a class="anchor" href="#phase-7-lettering-manifest" aria-label="Link to this section">#</a>Phase 7. Lettering manifest</h3>
+<p><strong>Goal.</strong> The scripts become JSON that every other tool reads.</p>
+<p><strong>Build.</strong> A parser for your script format. For Fountain with a few house conventions, the grammar is small: sections are <code>## PAGE ONE</code> through <code>## BACK MATTER TWO</code>; a panel is a paragraph starting <code>PANEL n.</code>; a page header such as &quot;Nine panels.&quot; declares the count; a cue is an all-caps speaker line with an optional type, and its text sits on the lines directly below.</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-js">const CUE  = /^([A-Z][A-Z0-9&#39;.&amp;\/ -]*?)(?: \(([A-Za-z ]+)\))?$/;   // SPEAKER or SPEAKER (TYPE); simplified from ours
+const KIND = { CAPTION: &#39;caption&#39;, THOUGHT: &#39;thought&#39;, SMALL: &#39;small&#39;,
+               OFF: &#39;off-panel&#39;, FEED: &#39;chat&#39;, BROADCAST: &#39;broadcast&#39;, SCREEN: &#39;screen&#39; };
+// no type = a plain balloon; chat lines split as &quot;handle: message&quot;; [[margin notes]] are stripped and listed
+</code></pre>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-text">{ issue, title,
+  pages: [{ n, layout, declaredPanels,
+            panels: [{ n, description, counters,
+                       letters: [{ id, kind, speaker, text } | { id, kind: &#39;chat&#39;, speaker, lines: [{ handle, text }] }] }] }],
+  backMatter: [{ n, typography, body }] }
+</code></pre>
+<p>Validate the structure (declared panel count equals found panel count, 22 story pages and 2 back-matter pages per issue in our format). Then verify the content with something that is not your parser:</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-bash">grep -cE &quot;^[A-Z][A-Z0-9&#39; .-]* \(CAPTION\)$&quot; issues/*.fountain   # repeat per type; compare with the manifest
+</code></pre>
+<p><strong>Done when.</strong> Per-type counts match the independent count, and you can explain every difference. Ours: six of seven types matched exactly, and a deliberately loose pattern found 1,541 cue-like lines against 1,537 items. Three of the four extras were description lines ending in a capital letter and a full stop. The fourth was a line in a back-matter page.</p>
+<p><strong>Likely failure.</strong> The parser silently drops text, or mistakes an all-caps line in a description for a speaker.</p>
+<h3 id="phase-8-layout-push-to-a-desktop-publishing-app"><a class="anchor" href="#phase-8-layout-push-to-a-desktop-publishing-app" aria-label="Link to this section">#</a>Phase 8. Layout push to a desktop-publishing app</h3>
+<p><strong>Goal.</strong> Lettered pages built by script from the manifest.</p>
+<p><strong>Build.</strong> Pick a layout app with a scriptable interface. DesignCraft has a headless mode (<code>designcraft-cli script file.dcs --save out.designcraft</code>) and a local control port. Our push does this:</p>
+<ol>
+<li>Create a document at trim size plus bleed, one page per story page.</li>
+<li>Add layers, bottom to top: Placeholder, Art (left empty for the artist), Panels, Lettering, Layout Flags, Notes.</li>
+<li>Create named paragraph styles per narrator and per balloon type, so restyling the book means editing a style.</li>
+<li>Draw a default panel grid only when the page header is a plain &quot;Nine panels.&quot;, &quot;Six panels.&quot; or &quot;Four panels.&quot; (3x3, 2 columns by 3 rows, 2x2) or a one-panel splash, and the panel count agrees. Any other layout gets an equal-height stack or a default grid and a visible red flag saying it needs a manual layout.</li>
+<li>Place every letter in reading order. The app has no balloon primitive, so a balloon is an ellipse text frame plus a wedge-shaped tail path. Grow shapes and rebuild, up to six rounds, until no text is overset.</li>
+<li>Ask the app&#39;s own inspector for overset text and compare against the panel bounds.</li>
+<li>Exit 0 when clean, 1 on a build failure and 2 on lettering problems, and still write the document and page PNGs on 2.</li>
+<li>Export PNGs and look at them.</li>
+</ol>
+<p><strong>Done when.</strong> All issues run, you can explain every non-zero exit, and you have viewed rendered pages.</p>
+<p><strong>Likely failure.</strong> Sizing by character count instead of the app&#39;s own measurement, shapes landing on the wrong page, and a fixed grid that cannot hold a dialogue-heavy panel. Seven of our twelve issues overflow the default grid. The fix we have not built is to size panels from the text each one carries.</p>
+<h3 id="phase-9-fonts"><a class="anchor" href="#phase-9-fonts" aria-label="Link to this section">#</a>Phase 9. Fonts</h3>
+<p><strong>Goal.</strong> Lettering that looks hand-made, without anyone retyping every letter. Go in this order.</p>
+<p><strong>Step 1: use existing open fonts, and check each licence at its source.</strong> On Google Fonts the licence is a field in each family&#39;s <code>METADATA.pb</code> file in the <code>google/fonts</code> repository. We confirmed <code>OFL</code> for Anton, JetBrains Mono, Shantell Sans and Patrick Hand there. Some popular marker fonts, such as Permanent Marker and Rock Salt, are Apache-2.0 instead. Both allow commercial use. The SIL Open Font License also allows embedding the font in a PDF or a printed book, but not selling the font file by itself, and a modified version cannot use a declared reserved name. This is not legal advice.</p>
+<p>One technical finding drove the next step. Repeated letters look typed unless the font cycles alternates. The old OpenType <code>rand</code> feature is reportedly poorly supported (forum evidence only), so the fonts we inspected use <code>calt</code> rules instead. Of thirteen comic-style fonts we inspected, only Shantell Sans had alternates.</p>
+<p><strong>Step 2: a generated test font as a placeholder.</strong> The pipeline:</p>
+<ol>
+<li>Store each glyph as hand-authored centerline strokes (3 to 12 points each, joined with a centripetal Catmull-Rom spline), in font units with cap height 700 and x-height 500.</li>
+<li>Expand strokes with a pressure-tapered elliptical brush. Jitter position, slant, width and endpoint overshoot from a seed so every build is byte-for-byte repeatable. Union the stamps with <code>skia-pathops</code>.</li>
+<li>Make three versions of every letter and digit (<code>A</code>, <code>A.alt1</code>, <code>A.alt2</code>), space each glyph from the depth of its ink profile, and write the feature file.</li>
+<li>Compile:</li>
+</ol>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-bash">fontmake -u build/Font.ufo -o ttf otf --overlaps-backend pathops
+</code></pre>
+<p>The <code>calt</code> rule, in words: for each letter, look back up to five glyphs for the same letter. If the nearest earlier one is the default, this one becomes <code>.alt1</code>. If that was <code>.alt1</code>, this becomes <code>.alt2</code>. If that was <code>.alt2</code>, it returns to the default. With no earlier match, the previous glyph&#39;s group picks the starting version, so the same letter at the start of different words does not always use the default.</p>
+<p>Test it with a shaper, not by eye. Shape a string with and without <code>calt</code> using HarfBuzz and compare glyph names. Then run a property test: generate random strings, and for every pair of identical letters within five glyphs, the glyph ids must differ. Ours: 14,027 pairs, 0 identical. The build agent&#39;s first run reported 33 identical pairs, which were repeated punctuation. Restrict the test to the letters that have alternates.</p>
+<p>Run a font checker too. fontspector gave 65 pass, 11 warn and 0 fail on ours, and the warnings were minor.</p>
+<p><strong>Step 3: your own hand, later.</strong> Replace the stroke data with strokes traced from the artist&#39;s ink and feed three traced takes per glyph as the three versions instead of seeded jitter. The rest of the pipeline (spacing, features, build, checks) does not change. We have not done this.</p>
+<p><strong>Done when.</strong> The layout app shows the alternates in a real balloon and you have a printed proof at the real size.</p>
+<p><strong>Likely failure.</strong> Thin strokes at print size (ours are), weak lowercase (ours is squeezed small caps), and an app that ignores the alternates. Authorship matters too: if an agent wrote the outlines, do not release the font under an open licence until the shapes come from the artist&#39;s ink. Research found US copyright generally does not register typeface designs but can protect font software, and that AI authorship is unsettled. Check this with a lawyer if you plan to sell or publish a font.</p>
+<h3 id="phase-10-the-hand-lettering-checklist"><a class="anchor" href="#phase-10-the-hand-lettering-checklist" aria-label="Link to this section">#</a>Phase 10. The hand-lettering checklist</h3>
+<p><strong>Goal.</strong> A list of everything that must be drawn inside the picture, so the artist can plan inking sessions.</p>
+<p><strong>Build.</strong> Scan panel descriptions and back-matter directions for four patterns and list each hit with page, panel, the exact words and the script&#39;s own sentence:</p>
+<ul>
+<li>sound effects: a sentence with a &quot;lettered across / small / along&quot; phrase and quoted text</li>
+<li>a recurring mark: appearances of the recurring symbol, tagged by material</li>
+<li>signs: a sentence with sign, board, poster or banner plus quoted text</li>
+<li>handwriting: handwritten, scrawled, in pencil, chalk, and similar</li>
+</ul>
+<p>Also list text that recurs, since one hand has to come back each time, and the sound-effect vocabulary. Ours found 191 candidates across 12 issues: 31 sound effects with 26 distinct words, 46 mark appearances, 35 signs and 79 handwriting items. One sign recurs 11 times.</p>
+<p><strong>Done when.</strong> The artist has reviewed the list and dropped the false hits.</p>
+<p><strong>Likely failure.</strong> Patterns that are too broad. Our first pass found 94 handwriting items because it matched &quot;a glass in her hand&quot;. Tightening the pattern gave 79.</p>
+<h3 id="phase-11-the-pilot-page"><a class="anchor" href="#phase-11-the-pilot-page" aria-label="Link to this section">#</a>Phase 11. The pilot page</h3>
+<p><strong>Goal.</strong> Take one page through every stage before drawing the rest of the book.</p>
+<p><strong>Build.</strong> A script that generates a kit for any page from the manifest and the recipes: a brief that quotes the script, lists every element to draw and the in-picture lettering, and names the colour recipe; a print template at 150% of trim size with bleed, trim and safe guides (ours is 10.3125 by 15.75 inches including bleed, drawn at 150% of a 6.625 by 10.25 inch trim, and prints on 11 by 17); a composition guide with numbered back, middle and foreground zones as a suggestion; a study sheet for the recurring mark; and a log table for time and surprises at each stage.</p>
+<p>The stages are: pencils, ink, scan, layers in the paint app, PSD, ingest, motion preview, lettering, proof.</p>
+<p><strong>Done when.</strong> The log is filled in and the format and style decisions are written down.</p>
+<p><strong>Likely failure.</strong> Treating the kit&#39;s defaults as decisions. They are working assumptions. Nobody has used our kit yet, so we cannot say how well it works.</p>
+<h3 id="phase-12-the-art-bible"><a class="anchor" href="#phase-12-the-art-bible" aria-label="Link to this section">#</a>Phase 12. The art bible</h3>
+<p><strong>Goal.</strong> One document that holds what is decided, what is assumed and what is open, so a new person or agent can start cold.</p>
+<p><strong>Build.</strong> Sections: scope; the labelling scheme and a master decision table; visual language; the lettering system; the pipeline; characters and world, limited to what the scripts already settle; prioritised open questions, each with options and a clearly marked recommendation; the roadmap; appendices with a glossary, file map and commands.</p>
+<p><strong>Done when.</strong> Someone who has never seen the project can find &quot;what is decided&quot; in under a minute.</p>
+<p><strong>Likely failure.</strong> Invented canon or invented looks. Trace every statement to a file or to the artist, and say so when two files disagree.</p>
+<h3 id="phase-13-motion-pieces-at-scale"><a class="anchor" href="#phase-13-motion-pieces-at-scale" aria-label="Link to this section">#</a>Phase 13. Motion pieces at scale</h3>
+<p><strong>Goal.</strong> Teasers, trailers and loops from real panels.</p>
+<p><strong>Build.</strong> For each piece: a brief, a score, a scene, a critique log. Scenes load panels with <code>loadPanels</code> and take every word and number from the manifest by page and panel. Chat or interface elements follow the script&#39;s own states, such as a thin rail when few people watch and a flood when many do, with the viewer counter&#39;s numbers quoted exactly.</p>
+<p><strong>Done when.</strong> A piece with real art scores 8 or higher on all six axes after at least three rounds.</p>
+<p><strong>Likely failure.</strong> Polishing procedural stand-ins. Our teaser&#39;s hook is stuck at 7 for exactly this reason, and no amount of tuning fixes placeholder art.</p>
+<h2 id="the-interview"><a class="anchor" href="#the-interview" aria-label="Link to this section">#</a>The interview</h2>
+<p>An agent can lift this section as it stands. Run it before writing code, in the groups below, a few questions at a time. Record answers in the artist&#39;s own words. Then label every answer in the decision table:</p>
+<ul>
+<li><strong>DECIDED</strong>: the artist said it, or wrote it in their own notes or scripts.</li>
+<li><strong>WORKING ASSUMPTION</strong>: you chose a default so something could be built.</li>
+<li><strong>OPEN</strong>: nobody has decided.</li>
+</ul>
+<p>Never invent an art decision for the artist. If they have not decided how stylised the characters are, the answer is OPEN, and you build around the gap with a clearly labelled stand-in. Show the finished table back to the artist and let them correct it.</p>
+<h3 id="format-and-output"><a class="anchor" href="#format-and-output" aria-label="Link to this section">#</a>Format and output</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td>Print first, screen first, or both?</td>
+<td>Sets page shape and how much weight motion gets</td>
+<td>Phase order; what to build first</td>
+</tr>
+<tr>
+<td>2</td>
+<td>If print: trim size, bleed, and the printer&#39;s spec?</td>
+<td>Template and layout document size</td>
+<td>Trim, bleed and safe constants in the pilot kit and the layout push</td>
+</tr>
+<tr>
+<td>3</td>
+<td>How many issues and pages, and is the count fixed?</td>
+<td>Validation and workload</td>
+<td>Manifest checks (ours: 22 story pages plus 2 back matter per issue)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>What will you publish: print, webcomic, social video, motion comic, several?</td>
+<td>Decides which outputs exist</td>
+<td>Render targets</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Which video shapes and lengths do you need, and should they loop?</td>
+<td>Layouts per aspect ratio; the loop seam; the first-second rule</td>
+<td><code>render.mjs</code> formats; each piece&#39;s brief</td>
+</tr>
+</tbody></table></div>
+<h3 id="art-process-and-files"><a class="anchor" href="#art-process-and-files" aria-label="Link to this section">#</a>Art process and files</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>6</td>
+<td>What media and tools do you draw with, and at what physical size?</td>
+<td>Working size sets template and scan size</td>
+<td>Template scale (ours: 150% of print)</td>
+</tr>
+<tr>
+<td>7</td>
+<td>How do you scan or photograph, at what resolution?</td>
+<td>Ingest levels and file sizes</td>
+<td><code>ingest.py</code> options</td>
+</tr>
+<tr>
+<td>8</td>
+<td>How do you colour: flats, painted gradients, texture, digital or traditional?</td>
+<td>Shapes the colour lab</td>
+<td><code>recipes.json</code>, painter parameters</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Can you deliver separate ink, colour and background layers, and from which app?</td>
+<td>Parallax and separate lighting depend on it</td>
+<td>Layer names; the PSD path of ingest</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Which apps do you prefer, and must any be open source?</td>
+<td>Tool and file-format choices</td>
+<td>Swatch formats; the stack</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Where do files live and how are they named?</td>
+<td>Stable paths for ingest and scenes</td>
+<td>Panel ids such as <code>issue-01/p02-1</code></td>
+</tr>
+</tbody></table></div>
+<h3 id="style-and-characters"><a class="anchor" href="#style-and-characters" aria-label="Link to this section">#</a>Style and characters</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>12</td>
+<td>How stylised should the characters be? Two or three references, for grammar only</td>
+<td>Biggest effect on acting and silhouettes</td>
+<td>Art bible, visual language</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Linework rules: brush weight, spotted blacks, border style?</td>
+<td>Ingest levels, panel borders</td>
+<td>Art bible; template</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Is there a fixed palette or a colour rule?</td>
+<td>Brand tokens and the brand score</td>
+<td>Tokens file; critique rubric</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Which recurring motifs need one canonical drawing?</td>
+<td>Consistency across every medium</td>
+<td>Study sheet; checklist</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Which characters and places need model sheets first, and what exists?</td>
+<td>Production order</td>
+<td>Roadmap; choice of pilot page</td>
+</tr>
+</tbody></table></div>
+<h3 id="lettering-and-type"><a class="anchor" href="#lettering-and-type" aria-label="Link to this section">#</a>Lettering and type</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>17</td>
+<td>Hand-lettered, set in fonts, or both? Which parts are which?</td>
+<td>Splits the work between artist and tools</td>
+<td>Checklist scope; font phase</td>
+</tr>
+<tr>
+<td>18</td>
+<td>All caps or mixed case?</td>
+<td>Lowercase quality matters only for mixed case</td>
+<td>Font build; text styles</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Which narrators or voices need visibly distinct text?</td>
+<td>One style per register</td>
+<td>Named paragraph styles</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Do you have a typeface preference or a sample of your own lettering?</td>
+<td>Direction for fonts; material for a traced font</td>
+<td>Font phase</td>
+</tr>
+<tr>
+<td>21</td>
+<td>How should in-story interfaces look (chat, tickers, news)?</td>
+<td>They recur on many pages</td>
+<td>Screen-chrome layer; shared styles</td>
+</tr>
+</tbody></table></div>
+<h3 id="screen-and-motion"><a class="anchor" href="#screen-and-motion" aria-label="Link to this section">#</a>Screen and motion</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>22</td>
+<td>Which in-story screens appear, and what numbers do they show?</td>
+<td>Counters and feeds can carry the story</td>
+<td>Manifest counters; scene scripts</td>
+</tr>
+<tr>
+<td>23</td>
+<td>Music: supplied, generated or none? Tempo and mood?</td>
+<td>Input for beat measuring</td>
+<td><code>score.mjs</code>, <code>beats.json</code></td>
+</tr>
+<tr>
+<td>24</td>
+<td>Voice-over? Whose voice, and what permission?</td>
+<td>Optional tool; consent</td>
+<td><code>vo.mjs</code> (we never ran it)</td>
+</tr>
+<tr>
+<td>25</td>
+<td>Which looks must be avoided, and what is the hook rule?</td>
+<td>Becomes the house rules</td>
+<td><code>CLAUDE.md</code>; linter</td>
+</tr>
+</tbody></table></div>
+<h3 id="scripts-and-text"><a class="anchor" href="#scripts-and-text" aria-label="Link to this section">#</a>Scripts and text</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>26</td>
+<td>What format are the scripts in, and which conventions mark captions, balloons, effects, chat?</td>
+<td>The parser&#39;s grammar</td>
+<td><code>manifest.mjs</code></td>
+</tr>
+<tr>
+<td>27</td>
+<td>Where must text be quoted exactly: numbers, signs, names?</td>
+<td>Exact quoting needs lookups that fail loudly</td>
+<td><code>lettering.js</code></td>
+</tr>
+<tr>
+<td>28</td>
+<td>What is the spoiler policy for promos?</td>
+<td>Limits what a teaser may show</td>
+<td>Each brief&#39;s &quot;spoilers stop at&quot; line</td>
+</tr>
+</tbody></table></div>
+<h3 id="tools-and-constraints"><a class="anchor" href="#tools-and-constraints" aria-label="Link to this section">#</a>Tools and constraints</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>29</td>
+<td>Operating system, installed tools, any offline limits?</td>
+<td>Decides whether the stack runs at all</td>
+<td>Setup and smoke tests</td>
+</tr>
+<tr>
+<td>30</td>
+<td>How much time per page, and how many pages a week?</td>
+<td>Keeps the roadmap honest</td>
+<td>Roadmap. Do not invent speeds</td>
+</tr>
+</tbody></table></div>
+<h3 id="ownership-and-legal"><a class="anchor" href="#ownership-and-legal" aria-label="Link to this section">#</a>Ownership and legal</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Question</th>
+<th>Why it matters</th>
+<th>What it drives</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>31</td>
+<td>What licence do you want for outputs and for any font made for the book? Are you comfortable with AI-generated font outlines?</td>
+<td>Decides whether a font can be released</td>
+<td>Font phase; licence choice</td>
+</tr>
+<tr>
+<td>32</td>
+<td>Which works must you not borrow from?</td>
+<td>Safe references</td>
+<td>Art bible reference rules</td>
+</tr>
+</tbody></table></div>
+<h2 id="limits-risks-and-what-we-would-do-differently"><a class="anchor" href="#limits-risks-and-what-we-would-do-differently" aria-label="Link to this section">#</a>Limits, risks and what we would do differently</h2>
+<p>The pipeline is a working skeleton, not a finished product. Here is where it stops.</p>
+<h3 id="limits"><a class="anchor" href="#limits" aria-label="Link to this section">#</a>Limits</h3>
+<ul>
+<li><strong>No real art has gone through it.</strong> The scan, the paint, the PSD and the ingest of real files are the largest unknown. Everything on screen so far is a stand-in.</li>
+<li><strong>Only one layout app, and only its command line.</strong> We never opened a generated document in DesignCraft&#39;s window. The alternates were confirmed only there. Other apps are untested, and the old <code>rand</code> feature is poorly supported according to forum evidence we could not confirm at the source.</li>
+<li><strong>No printed proof.</strong> The test font is thin at 7.6 pt on screen renders. We have not handled CMYK, colour profiles or PDF/X.</li>
+<li><strong>Layout is a default stack.</strong> Seven of twelve issues overflow the default grid. Tails are generic wedges and are not aimed at speakers. Only pages whose header is a plain nine, six or four panel grid, or a single splash, get an automatic grid. Every other layout is flagged for a hand layout.</li>
+<li><strong>Motion is one teaser.</strong> It runs on placeholder art, its hook scores 7 out of 10, and beat measuring has only been tried on music we generated ourselves.</li>
+<li><strong>The critique loop is self-graded.</strong> The agent scores its own frames. A human should review at least the final round.</li>
+<li><strong>One machine.</strong> macOS, Node 22, Python 3.14. The ffmpeg build we used has no <code>drawtext</code> filter, so our review sheets carry no timestamps.</li>
+<li><strong>Weak sources in the research.</strong> We could not read several design-press pages, so the trend section rests on blog posts. Comic suitability of the fonts is inference from letterforms. A Google Fonts rule about reserved names rests on secondary sources, and the claim that Google asks for AI disclosure rests on one forum comment.</li>
+<li><strong>Cost unknown.</strong> We did not track time per step or the cost of the agent&#39;s work. Treat any figure you see elsewhere as unmeasured.</li>
+</ul>
+<h3 id="risks"><a class="anchor" href="#risks" aria-label="Link to this section">#</a>Risks</h3>
+<ul>
+<li><strong>Defaults hardening into policy.</strong> The decision labels exist to prevent this. Use them.</li>
+<li><strong>Authorship and licence of generated outlines.</strong> If an agent wrote a font&#39;s shapes, releasing it under an open licence is unsettled. Wait for shapes derived from the artist&#39;s ink, and take legal advice before selling or publishing a font.</li>
+<li><strong>Trusting pattern-matched lists.</strong> The hand-lettering checklist finds candidates. It does not read.</li>
+<li><strong>Agent summaries that overstate.</strong> We re-ran the checks that mattered. Do the same.</li>
+<li><strong>Spoilers in promo material.</strong> Briefs should say where spoilers stop, and the scenes should pull only approved text.</li>
+<li><strong>Young software.</strong> The layout and paint apps are in active development. DesignCraft&#39;s local control port has no authentication, so keep it on the loopback interface and do not expose it to a network.</li>
+</ul>
+<h3 id="what-we-would-do-differently"><a class="anchor" href="#what-we-would-do-differently" aria-label="Link to this section">#</a>What we would do differently</h3>
+<ol>
+<li><strong>See real hand work first.</strong> We built a colour lab and a font before seeing any of the artist&#39;s inked pages, and had to caveat both. Ask for one inked page and one page of lettering before building either.</li>
+<li><strong>Run the pilot page earlier.</strong> It should come before the font and the lab, because it settles the format and style questions they depend on.</li>
+<li><strong>Size panels from the text.</strong> A fixed grid failed seven issues. Let each panel&#39;s lettering load set its size.</li>
+<li><strong>Build the manifest before the first teaser.</strong> We hard-coded the teaser&#39;s text first, then rewired it, and the rewiring exposed our own errors.</li>
+<li><strong>Ask agents narrower questions.</strong> One broad research task had to be stopped and re-run with a tighter scope.</li>
+<li><strong>Record time and cost from the start.</strong></li>
+<li><strong>Put a human in the critique loop sooner.</strong></li>
+</ol>
+<h2 id="stack-licences-and-cost"><a class="anchor" href="#stack-licences-and-cost" aria-label="Link to this section">#</a>Stack, licences and cost</h2>
+<p>Versions are the ones installed on the machine we used. Licences are listed only where we read them in the package metadata or the repository; every other row says &quot;not checked&quot;. This is not legal advice, so check each licence before you ship or sell anything.</p>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Version</th>
+<th>Role</th>
+<th>Licence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Node.js</td>
+<td>22.23.1</td>
+<td>Renderer and tools</td>
+<td>Not checked</td>
+</tr>
+<tr>
+<td>Playwright</td>
+<td>1.64.1</td>
+<td>Headless Chromium driver</td>
+<td>Apache-2.0 (package metadata); the browser&#39;s own licences not checked</td>
+</tr>
+<tr>
+<td>ffmpeg</td>
+<td>8.1.2</td>
+<td>Frame encoding, audio mastering, review sheets</td>
+<td>Our build is configured with <code>--enable-gpl</code>, so that build is GPL. Check yours</td>
+</tr>
+<tr>
+<td>Python</td>
+<td>3.14.6</td>
+<td>Beats, ingest, font build</td>
+<td>Not checked</td>
+</tr>
+<tr>
+<td>librosa</td>
+<td>1.0.0</td>
+<td>Beat and onset measuring</td>
+<td>ISC (package metadata)</td>
+</tr>
+<tr>
+<td>Pillow</td>
+<td>12.3.0</td>
+<td>Image handling</td>
+<td>MIT-CMU (package metadata)</td>
+</tr>
+<tr>
+<td>numpy, scipy, psd-tools, soundfile</td>
+<td>2.5.4, 1.18.1, 1.25.0, 0.14.0</td>
+<td>Image, audio and PSD support</td>
+<td>Not checked</td>
+</tr>
+<tr>
+<td>fontTools</td>
+<td>4.67.0</td>
+<td>Font building blocks</td>
+<td>MIT (package metadata)</td>
+</tr>
+<tr>
+<td>fontmake</td>
+<td>3.12.2</td>
+<td>Compiles UFO to TTF and OTF</td>
+<td>Apache-2.0 (package metadata)</td>
+</tr>
+<tr>
+<td>ufo2ft, ufoLib2, skia-pathops</td>
+<td>3.9.1, 0.19.1, 0.9.2</td>
+<td>Font compilation and outline unions</td>
+<td>Not checked</td>
+</tr>
+<tr>
+<td>uharfbuzz</td>
+<td>0.56.3</td>
+<td>Shaping tests for alternates</td>
+<td>Apache-2.0 (package metadata)</td>
+</tr>
+<tr>
+<td>fontspector</td>
+<td>1.9.0</td>
+<td>Font quality checks, installed with cargo</td>
+<td>Not checked</td>
+</tr>
+<tr>
+<td>ScriptCraft, VectorCraft, DesignCraft, PhotoCraft</td>
+<td>Built from local clones; versions not recorded</td>
+<td>Script editor, vector art, page layout, image editing</td>
+<td>MIT OR Apache-2.0, from each repository&#39;s <code>Cargo.toml</code> and licence files</td>
+</tr>
+<tr>
+<td>Anton, JetBrains Mono, Shantell Sans, Patrick Hand</td>
+<td>Current Google Fonts files</td>
+<td>Display, interface and candidate lettering fonts</td>
+<td>OFL, from each family&#39;s <code>METADATA.pb</code></td>
+</tr>
+<tr>
+<td>ElevenLabs</td>
+<td>Optional</td>
+<td>Voice-over</td>
+<td>Paid account. We wrote the tool and never ran it</td>
+</tr>
+</tbody></table></div>
+<p><strong>Cost and time.</strong> The session ran roughly five to six hours. Individual steps were quick: the layout app compiled in 48 seconds from source, the test font builds in about 10 seconds, and the teaser renders in under 30 seconds per format. We did not track the cost of the AI agent&#39;s work, so we cannot give a price. The agent itself is a paid service, and the only other paid option here is voice-over.</p>
+<h2 id="appendix"><a class="anchor" href="#appendix" aria-label="Link to this section">#</a>Appendix</h2>
+<h3 id="a-brief-to-hand-to-your-own-agent"><a class="anchor" href="#a-brief-to-hand-to-your-own-agent" aria-label="Link to this section">#</a>A brief to hand to your own agent</h3>
+<p>Copy this into your agent&#39;s first message, together with this article.</p>
+<pre><button class="copy" type="button" aria-label="Copy code">Copy</button><code class="language-text">You are building a code-driven production pipeline for a hand-drawn comic. The
+attached article, &quot;Building a comic book pipeline with AI&quot;, is your playbook.
+
+1. Interview the artist before writing code. Use the interview section&#39;s question
+   list, a few questions at a time. Record answers in their own words.
+2. Build a decision table. Label every row DECIDED (the artist said it),
+   WORKING ASSUMPTION (you chose a default) or OPEN. Never invent an art decision
+   or a character look. Show the table to the artist and let them correct it.
+3. Set up the project. Install and smoke-test every tool before you plan around it.
+   Vendor fonts locally. Write a rules file and a linter before the first scene.
+4. Follow the phases in order: renderer, audio and beats, review pack, art ingest,
+   colour lab, lettering manifest, layout push, fonts, hand-lettering checklist,
+   pilot page, art bible, motion pieces. Do not start a phase until the previous
+   phase passes its &quot;done when&quot; test.
+5. Rules that never bend: every frame is a pure function of time; label stand-ins
+   loudly; verify counts with something that is not your own parser; fail loudly
+   when a reference no longer resolves; look at your own renders before scoring them;
+   never claim you reviewed something you did not open.
+6. When you finish a phase, update a status table with three columns: built and
+   verified, built but lightly tested, not done. Say what you did not test.
+7. Stop and ask the artist before any decision that is theirs to make.
+</code></pre>
+<h3 id="acceptance-checklist"><a class="anchor" href="#acceptance-checklist" aria-label="Link to this section">#</a>Acceptance checklist</h3>
+<ul>
+<li><input disabled="" type="checkbox"> A decision table exists, every row is labelled, and the artist has read it</li>
+<li><input disabled="" type="checkbox"> The linter fails a scene containing <code>Math.random()</code> and passes a clean scene</li>
+<li><input disabled="" type="checkbox"> One frame rendered twice gives an identical file hash</li>
+<li><input disabled="" type="checkbox"> A piece renders in every format you promised, with audio at the target loudness</li>
+<li><input disabled="" type="checkbox"> The review pack exists and the critique log shows at least three rounds</li>
+<li><input disabled="" type="checkbox"> Ingest has been run on a real scan and, if you use PSDs, a real layered PSD</li>
+<li><input disabled="" type="checkbox"> The manifest&#39;s per-type counts match an independent count, and every difference is explained</li>
+<li><input disabled="" type="checkbox"> The layout push has been run on every issue and each non-zero exit is understood</li>
+<li><input disabled="" type="checkbox"> Rendered pages have been viewed, and a printed proof has been checked at real size</li>
+<li><input disabled="" type="checkbox"> Every stand-in is labelled, and a status table says what is real and what is not</li>
+</ul>
+<h3 id="glossary"><a class="anchor" href="#glossary" aria-label="Link to this section">#</a>Glossary</h3>
+<div class="tw"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Pure function of time</td>
+<td>A frame depends only on the time <code>t</code>, with no randomness or timers, so a render is repeatable</td>
+</tr>
+<tr>
+<td><code>seek(t)</code></td>
+<td>The function a scene exports; the renderer calls it once per frame</td>
+</tr>
+<tr>
+<td>Stacked springs</td>
+<td>One spring per change of target, each starting at its own time, so nothing restarts</td>
+</tr>
+<tr>
+<td>Contact sheet</td>
+<td>A grid of one frame per second that shows pacing and repetition at a glance</td>
+</tr>
+<tr>
+<td>Beat snapping</td>
+<td>Moving an intended time to the nearest measured beat within a tolerance</td>
+</tr>
+<tr>
+<td>Manifest</td>
+<td>JSON extracted from the scripts that lists every page, panel and piece of lettering</td>
+</tr>
+<tr>
+<td>Ingest</td>
+<td>Turning a scan or layered PSD into transparent layers plus a <code>panel.json</code></td>
+</tr>
+<tr>
+<td>Stand-in</td>
+<td>A placeholder that lets work continue, always labelled as one</td>
+</tr>
+<tr>
+<td>Screen chrome</td>
+<td>In-story interface drawn over a picture: a chat rail, a LIVE bug, a counter</td>
+</tr>
+<tr>
+<td><code>calt</code></td>
+<td>OpenType contextual alternates, the feature that picks a different letter version by context</td>
+</tr>
+<tr>
+<td>Overset</td>
+<td>Text that does not fit its frame</td>
+</tr>
+<tr>
+<td>Recipe</td>
+<td>A named colour mood with stops, an accent and rules, tied to a script page</td>
+</tr>
+<tr>
+<td>Pilot page</td>
+<td>One page taken through every stage to find what breaks before the rest are drawn</td>
+</tr>
+<tr>
+<td>DECIDED, WORKING ASSUMPTION, OPEN</td>
+<td>The three labels for every choice</td>
+</tr>
+</tbody></table></div>
+<h3 id="links-and-credit"><a class="anchor" href="#links-and-credit" aria-label="Link to this section">#</a>Links and credit</h3>
+<ul>
+<li>Ray Fu, <a href="https://www.raycfu.com/guides/motion-design-studio-opus-5-5">Motion Design Studio with Claude Opus 5.5</a>: the starting idea. We adopted its rendering approach and review loop and added everything specific to comics.</li>
+<li><a href="https://github.com/google/fonts">google/fonts</a>: where we checked each font&#39;s licence field.</li>
+<li>The layout, paint and script apps we used belong to the open-source ArtCraft suite. Search for &quot;ArtCraft Crafting Apps&quot; and check each repository&#39;s licence file.</li>
+</ul>
+<h2 id="where-this-stands"><a class="anchor" href="#where-this-stands" aria-label="Link to this section">#</a>Where this stands</h2>
+<p>The skeleton works end to end on stand-ins. Scripts become lettering, panels become layers, and the same text and layers drive print pages and motion pieces. What it has never done is carry a real drawing. The next step is the one only the artist can take: draw, scan and paint one page, then run it through the pipeline and write down what breaks. Until that happens, read every claim in this article against the status table at the top.</p>
+
+</main>
+</div>
+<footer>Built 2026-10-15. This page is a static copy of the guide; it was written by an AI agent working with an artist, and says plainly what was and was not verified.</footer>
+<script>
+(function(){
+  document.querySelectorAll('pre .copy').forEach(function(b){b.addEventListener('click',function(){
+    var t=b.parentNode.querySelector('code').innerText;
+    (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1400)},function(){b.textContent='Press Ctrl+C';});
+  });});
+  var links=[].slice.call(document.querySelectorAll('nav.toc a')),map={};links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a});
+  if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){links.forEach(function(l){l.classList.remove('on')});var a=map[e.target.id];if(a)a.classList.add('on')}})},{rootMargin:'-10% 0px -80% 0px'});
+    document.querySelectorAll('main h2[id],main h3[id]').forEach(function(h){io.observe(h)});}
+})();
+</script>
+</body>
+</html>
